@@ -1,0 +1,33 @@
+postgresql.connection = 'postgres://repl_user@localhost:5432/postgres'
+postgresql.password = ''
+
+postgresql.publication.create = true
+postgresql.publication.autodrop = false
+
+topic.namingstrategy.type = 'debezium'
+topic.prefix = 'timescaledb'
+
+statestorage.type = 'file'
+statestorage.file.path = '/tmp/statestorage.dat'
+
+postgresql.replicationslot.name = 'pg_ts_streamer'
+postgresql.replicationslot.create = true
+postgresql.replicationslot.autodrop = false
+
+sink.type = 'kafka'
+sink.kafka.brokers = ['localhost:9092']
+
+sink.filters.orders.hypertables.includes = ['public.payment_requests']
+sink.filters.orders.condition = '''value.op == "c" || value.op == "r"'''
+sink.filters.orders.default = true
+
+timescaledb.hypertables.excludes = []
+timescaledb.hypertables.includes = ['public.payment_requests']
+timescaledb.events.read = true
+timescaledb.events.insert = true
+timescaledb.events.update = true
+timescaledb.events.delete = true
+timescaledb.events.truncate = false
+timescaledb.events.message = false
+timescaledb.events.compression = false
+timescaledb.events.decompression = false
