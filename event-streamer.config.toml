@@ -17,12 +17,12 @@ postgresql.replicationslot.autodrop = false
 sink.type = 'kafka'
 sink.kafka.brokers = ['localhost:9092']
 
-sink.filters.orders.hypertables.includes = ['public.payment_requests']
+sink.filters.orders.hypertables.includes = ['public.payments']
 sink.filters.orders.condition = '''value.op == "c" || value.op == "r"'''
 sink.filters.orders.default = true
 
 timescaledb.hypertables.excludes = []
-timescaledb.hypertables.includes = ['public.payment_requests']
+timescaledb.hypertables.includes = ['public.payments']
 timescaledb.events.read = true
 timescaledb.events.insert = true
 timescaledb.events.update = true
