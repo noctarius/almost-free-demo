@@ -1,0 +1,794 @@
+{
+  "name": "Order Processing and Stripe Checkout",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/checkout",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "4e9f1308-a1f4-44fd-a397-e47994acf708",
+      "name": "Create Checkout",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        180
+      ],
+      "webhookId": "9f0281c2-8ada-47ca-840d-b5b38c945208"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"url\": \"{{ $json.url }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "f404239e-d8d9-4fba-b3de-f3e9b1fab718",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "order_items",
+          "mode": "list",
+          "cachedResultName": "order_items"
+        },
+        "dataMode": "defineBelow",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "order_id",
+              "value": "={{ $json.order_id }}"
+            },
+            {
+              "column": "position",
+              "value": "0"
+            },
+            {
+              "column": "product_id",
+              "value": "={{ $json.product_id }}"
+            },
+            {
+              "column": "amount",
+              "value": "={{ $json.amount }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "99f3ba29-dbd8-4d6c-adbf-666c66e07a19",
+      "name": "Create Order Items",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        440,
+        200
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "6",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.stripe.com/v1/checkout/sessions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "stripeApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "success_url",
+              "value": "http://localhost:10000/app/almost-free#/thankyou"
+            },
+            {
+              "name": "mode",
+              "value": "payment"
+            },
+            {
+              "name": "client_reference_id",
+              "value": "={{ $json.order_id }}"
+            },
+            {
+              "name": "currency",
+              "value": "EUR"
+            },
+            {
+              "name": "line_items[0][quantity]",
+              "value": "1"
+            },
+            {
+              "name": "line_items[0][price_data][currency]",
+              "value": "EUR"
+            },
+            {
+              "name": "line_items[0][price_data][unit_amount]",
+              "value": "={{ $json.price }}"
+            },
+            {
+              "name": "line_items[0][price_data][tax_behavior]",
+              "value": "inclusive"
+            },
+            {
+              "name": "line_items[0][price_data][product_data][name]",
+              "value": "Your Food Order"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "238a49ed-b300-4b6e-9ca9-99bd7ca053aa",
+      "name": "Create Stripe Checkout",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        940,
+        200
+      ],
+      "credentials": {
+        "stripeApi": {
+          "id": "4",
+          "name": "Stripe account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT o.order_id, floor(sum(oi.amount * p.price) * 100) as price\nFROM orders o\nLEFT JOIN order_items oi ON o.order_id = oi.order_id\nLEFT JOIN products p on oi.product_id = p.product_id\nWHERE o.order_id = {{ $node['Create New Order'].json.order_id }}\nGROUP BY 1",
+        "options": {}
+      },
+      "id": "e1ff63da-ac77-493e-991c-128bb7477331",
+      "name": "Read Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        760,
+        200
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "postgres": {
+          "id": "6",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "orders",
+          "mode": "list",
+          "cachedResultName": "orders"
+        },
+        "dataMode": "defineBelow",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "customer_id",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "448b000b-ff99-4d0d-be51-1006f27866d4",
+      "name": "Create New Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        80,
+        360
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "6",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "9ce336e0-5490-47c8-ae9e-b512f7ae3de9",
+      "name": "Join",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        280,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "basket",
+        "options": {}
+      },
+      "id": "a4a1f605-f0f2-48a5-b235-bd9a30fa1dfb",
+      "name": "Split Basket Items",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 2.1,
+      "position": [
+        80,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "summarize",
+        "fieldsToSummarize": {
+          "values": [
+            {
+              "field": "position"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9b80f1ea-8f8e-4a07-980b-6b305f90a8cd",
+      "name": "Wait For All",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 2.1,
+      "position": [
+        600,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {basket: JSON.parse($input.item.json.query.items)}"
+      },
+      "id": "39d1dfde-0d22-4814-90b5-3cd8cf4d89b3",
+      "name": "Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stripe",
+        "options": {}
+      },
+      "id": "14cd0ee5-7ddb-4ea1-9997-5d6f9dad1ebd",
+      "name": "Stripe Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        580
+      ],
+      "webhookId": "d8b45885-f4f8-4272-865b-7b958ed4273f"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.type }}",
+              "value2": "checkout.session.completed"
+            }
+          ]
+        }
+      },
+      "id": "4969c373-4f49-4788-9f82-18b1caa4c20b",
+      "name": "IF",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        580
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "27940d75-06c5-4e67-a934-c3792419d6e7",
+      "name": "No Operation, do nothing",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        180,
+        740
+      ]
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "payments",
+          "mode": "list",
+          "cachedResultName": "payments"
+        },
+        "dataMode": "defineBelow",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "order_id",
+              "value": "={{ $json.body.data.object.client_reference_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f5ce4b49-208c-47ec-aa1f-5d57c778e4c8",
+      "name": "Postgres",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        180,
+        560
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "6",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "MGaaec5bc56b0bc55fb8182fa7e4883e90",
+        "to": "+4916096482677",
+        "message": "=Hey {{ $node['Read Customer'].json.first_name }}, your order and payment over {{ $node['Read Order1'].json.price }} € has been received.",
+        "options": {}
+      },
+      "id": "195d1c1c-7373-407a-a355-49fa11245fdc",
+      "name": "Twilio",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        340,
+        940
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "3",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "topic": "timescaledb.public.payments",
+        "groupId": "n8n",
+        "options": {
+          "allowAutoTopicCreation": true,
+          "jsonParseMessage": true
+        }
+      },
+      "id": "e9eb43f6-734f-40b8-839c-90d3dfb555b0",
+      "name": "Kafka Trigger",
+      "type": "n8n-nodes-base.kafkaTrigger",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        940
+      ],
+      "credentials": {
+        "kafka": {
+          "id": "5",
+          "name": "Kafka account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "customers",
+          "mode": "list",
+          "cachedResultName": "customers"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "customer_id",
+              "value": "={{ $json.customer_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1bbbfba2-7a26-4609-b322-084870c81454",
+      "name": "Read Customer",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        140,
+        940
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "6",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT o.customer_id, round(sum(oi.amount * p.price)::numeric, 2) as price\nFROM orders o\nLEFT JOIN order_items oi ON o.order_id = oi.order_id\nLEFT JOIN products p on oi.product_id = p.product_id\nWHERE o.order_id = {{ $json.message.payload.after.order_id }}\nGROUP BY 1 ",
+        "options": {}
+      },
+      "id": "2038ad1a-2982-40c0-bd22-f93a61446989",
+      "name": "Read Order1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        -60,
+        940
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "6",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Create Checkout": [
+      {
+        "json": {
+          "headers": {
+            "accept": "*/*",
+            "content-length": "0",
+            "user-agent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+            "accept-encoding": "gzip,deflate",
+            "connection": "close",
+            "host": "host.docker.internal:5678"
+          },
+          "params": {},
+          "query": {
+            "items": "[{\"_id\":\"ro_ta_aecf7ba7dc3345f89ce20f7c175ce79f_a2a8e1530491479280e3f7ba1b5ae642\",\"_rev\":\"1-1e40808695471cd5a74765998a87de52\",\"amount\":1,\"product_id\":1,\"tableId\":\"ta_aecf7ba7dc3345f89ce20f7c175ce79f\",\"Auto ID\":19,\"Created At\":\"2023-05-16T12:15:18.280Z\",\"Updated At\":\"2023-05-16T12:15:18.280Z\",\"type\":\"row\",\"createdAt\":\"2023-05-16T12:15:18.731Z\",\"updatedAt\":\"2023-05-16T12:15:18.731Z\",\"Created By\":[{\"_id\":\"ro_ta_users_us_1d949dfbce044d1e94d7366588b3751f\",\"primaryDisplay\":\"christoph@timescale.com\"}],\"Updated By\":[{\"_id\":\"ro_ta_users_us_1d949dfbce044d1e94d7366588b3751f\",\"primaryDisplay\":\"christoph@timescale.com\"}],\"Created By_text\":\"christoph@timescale.com\",\"Updated By_text\":\"christoph@timescale.com\"},{\"_id\":\"ro_ta_aecf7ba7dc3345f89ce20f7c175ce79f_abf4fe19257f42eca49bf6fb343b25d0\",\"_rev\":\"1-dfd23624c4e841e74b80e27043d2085e\",\"amount\":1,\"product_id\":8,\"tableId\":\"ta_aecf7ba7dc3345f89ce20f7c175ce79f\",\"Auto ID\":20,\"Created At\":\"2023-05-16T12:15:24.386Z\",\"Updated At\":\"2023-05-16T12:15:24.386Z\",\"type\":\"row\",\"createdAt\":\"2023-05-16T12:15:24.946Z\",\"updatedAt\":\"2023-05-16T12:15:24.946Z\",\"Created By\":[{\"_id\":\"ro_ta_users_us_1d949dfbce044d1e94d7366588b3751f\",\"primaryDisplay\":\"christoph@timescale.com\"}],\"Updated By\":[{\"_id\":\"ro_ta_users_us_1d949dfbce044d1e94d7366588b3751f\",\"primaryDisplay\":\"christoph@timescale.com\"}],\"Created By_text\":\"christoph@timescale.com\",\"Updated By_text\":\"christoph@timescale.com\"}]"
+          },
+          "body": {}
+        }
+      }
+    ],
+    "Stripe Event Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "localhost:5678",
+            "user-agent": "Stripe/1.0 (+https://stripe.com/docs/webhooks)",
+            "content-length": "2857",
+            "accept": "*/*; q=0.5, application/xml",
+            "cache-control": "no-cache",
+            "content-type": "application/json; charset=utf-8",
+            "stripe-signature": "t=1684243322,v1=17d30a32706850d723c47a472a989c2424b3e637b35a53383643373994f41970,v0=6599540c4a149b696fc9729c4e5b61a0817591fb0201a20da8c56e8a5c69860b",
+            "accept-encoding": "gzip"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "id": "evt_1N8NpGDy4vTtD3LC9r2NzNOz",
+            "object": "event",
+            "api_version": "2022-11-15",
+            "created": 1684243322,
+            "data": {
+              "object": {
+                "id": "cs_test_a1fFa4SP9z47q2xE0nM4h65zCTBAhPUWqCPxxSrPICVLHL26KSXifIO0he",
+                "object": "checkout.session",
+                "after_expiration": null,
+                "allow_promotion_codes": null,
+                "amount_subtotal": 1998,
+                "amount_total": 1998,
+                "automatic_tax": {
+                  "enabled": false,
+                  "status": null
+                },
+                "billing_address_collection": null,
+                "cancel_url": null,
+                "client_reference_id": "55",
+                "consent": null,
+                "consent_collection": null,
+                "created": 1684243287,
+                "currency": "eur",
+                "currency_conversion": null,
+                "custom_fields": [],
+                "custom_text": {
+                  "shipping_address": null,
+                  "submit": null
+                },
+                "customer": null,
+                "customer_creation": "if_required",
+                "customer_details": {
+                  "address": {
+                    "city": null,
+                    "country": "DE",
+                    "line1": null,
+                    "line2": null,
+                    "postal_code": null,
+                    "state": null
+                  },
+                  "email": "christoph@timescale.com",
+                  "name": "Chris Engelbert",
+                  "phone": null,
+                  "tax_exempt": "none",
+                  "tax_ids": []
+                },
+                "customer_email": null,
+                "expires_at": 1684329686,
+                "invoice": null,
+                "invoice_creation": {
+                  "enabled": false,
+                  "invoice_data": {
+                    "account_tax_ids": null,
+                    "custom_fields": null,
+                    "description": null,
+                    "footer": null,
+                    "metadata": {},
+                    "rendering_options": null
+                  }
+                },
+                "livemode": false,
+                "locale": null,
+                "metadata": {},
+                "mode": "payment",
+                "payment_intent": "pi_3N8NpEDy4vTtD3LC1xolehJN",
+                "payment_link": null,
+                "payment_method_collection": "always",
+                "payment_method_options": {},
+                "payment_method_types": [
+                  "card",
+                  "bancontact",
+                  "eps",
+                  "giropay",
+                  "ideal",
+                  "link"
+                ],
+                "payment_status": "paid",
+                "phone_number_collection": {
+                  "enabled": false
+                },
+                "recovered_from": null,
+                "setup_intent": null,
+                "shipping_address_collection": null,
+                "shipping_cost": null,
+                "shipping_details": null,
+                "shipping_options": [],
+                "status": "complete",
+                "submit_type": null,
+                "subscription": null,
+                "success_url": "http://localhost:10000/app/almost-free#/thankyou",
+                "total_details": {
+                  "amount_discount": 0,
+                  "amount_shipping": 0,
+                  "amount_tax": 0
+                },
+                "url": null
+              }
+            },
+            "livemode": false,
+            "pending_webhooks": 2,
+            "request": {
+              "id": null,
+              "idempotency_key": null
+            },
+            "type": "checkout.session.completed"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Create Checkout": {
+      "main": [
+        [
+          {
+            "node": "Create New Order",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Order Items": {
+      "main": [
+        [
+          {
+            "node": "Wait For All",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Stripe Checkout": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Order": {
+      "main": [
+        [
+          {
+            "node": "Create Stripe Checkout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New Order": {
+      "main": [
+        [
+          {
+            "node": "Join",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Split Basket Items": {
+      "main": [
+        [
+          {
+            "node": "Join",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Join": {
+      "main": [
+        [
+          {
+            "node": "Create Order Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait For All": {
+      "main": [
+        [
+          {
+            "node": "Read Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Split Basket Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stripe Event Webhook": {
+      "main": [
+        [
+          {
+            "node": "IF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF": {
+      "main": [
+        [
+          {
+            "node": "Postgres",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kafka Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Order1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Customer": {
+      "main": [
+        [
+          {
+            "node": "Twilio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Order1": {
+      "main": [
+        [
+          {
+            "node": "Read Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "c387b757-125f-47a9-837c-621d420ec021",
+  "id": "4",
+  "meta": {
+    "instanceId": "b44e7d93dab1d61755e84f3be3704f0cd7255c093ea341752fae369c701c15c5"
+  },
+  "tags": []
+}
